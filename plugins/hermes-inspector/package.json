@@ -1,0 +1,20 @@
+{
+  "name": "hermes-inspector",
+  "version": "0.1.0",
+  "description": "Hermes Inspector plugin — storage layer for docs + kanban board snapshots.",
+  "main": "src/store.js",
+  "scripts": {
+    "smoke:sqlite": "node test/smoke.js sqlite",
+    "smoke:json": "node test/smoke.js json",
+    "smoke": "node test/smoke.js sqlite && node test/smoke.js json"
+  },
+  "keywords": ["hermes", "inspector", "sqlite", "kanban"],
+  "author": "aliadil",
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^12.11.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
