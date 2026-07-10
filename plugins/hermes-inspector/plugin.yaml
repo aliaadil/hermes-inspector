@@ -1,0 +1,55 @@
+# Hermes plugin manifest.
+# Hermes discovers plugins by scanning `plugins/*/plugin.yaml` and loads the
+# `entry` file (default `index.js`). The manifest also declares the lifecycle
+# events this plugin subscribes to so the host can validate wiring before boot.
+name: hermes-inspector
+version: 0.2.0
+description: >
+  Persists every doc Hermes emits (PR summaries, briefs, ADRs, notes) plus a
+  snapshot of kanban board state, then exposes a small HTTP dashboard for
+  inspection and manual card moves.
+entry: index.js
+author: aliadil
+license: MIT
+
+# Optional metadata shown on the plugin index page.
+tags:
+  - observability
+  - kanban
+  - dashboard
+
+# Lifecycle hooks this plugin subscribes to. Hermes will only deliver events
+# listed here, so adding a new hook is a one-line edit.
+events:
+  - task_created
+  - task_started
+  - task_completed
+  - task_failed
+  - doc_emitted
+
+# HTTP routes registered under `/plugins/<name>` by the host.
+http:
+  base_path: /plugins/hermes-inspector
+  static_dir: public
+  routes:
+    - method: GET
+      path: /api/docs
+      handler: listDocs
+    - method: GET
+      path: /api/docs/:id
+      handler: getDoc
+    - method: GET
+      path: /api/board
+      handler: listBoard
+    - method: POST
+      path: /api/board/move
+      handler: moveCard
+    - method: GET
+      path: /health
+      handler: health
+
+# Configuration the host should pass to the plugin on load.
+config:
+  data_path: ./data/inspector.db
+  http_port: 0          # 0 = let host assign; set to fixed port for standalone
+  backend: sqlite       # 'sqlite' | 'json'

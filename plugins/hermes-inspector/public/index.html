@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Hermes Inspector</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Hermes Inspector</h1>
+    <p id="status">loading...</p>
+  </header>
+
+  <main>
+    <section id="board-section">
+      <h2>Board</h2>
+      <div id="board"></div>
+    </section>
+
+    <section id="docs-section">
+      <h2>Recent docs</h2>
+      <ul id="docs"></ul>
+    </section>
+
+    <section id="move-section">
+      <h2>Move a card</h2>
+      <form id="move-form">
+        <label>card_id <input name="card_id" required /></label>
+        <label>to_column
+          <select name="to_column">
+            <option>todo</option><option>ready</option><option>running</option>
+            <option>blocked</option><option>review</option><option selected>done</option>
+          </select>
+        </label>
+        <button type="submit">Move</button>
+      </form>
+      <pre id="move-result"></pre>
+    </section>
+  </main>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>
