@@ -1,12 +1,52 @@
-# Hermes Inspector
+# Hermes Inspector (legacy JS plugin)
+
+> **DEPRECATED — read the root README instead.**
+> The currently-installed plugin lives at the **repository root** of
+> `aliaadil/hermes-inspector`. `hermes plugins install` clones the
+> whole repo into `~/.hermes/plugins/hermes-inspector/` and loads the
+> Python `register(ctx)` entry point at the root. This directory
+> (`plugins/hermes-inspector/`) is a standalone Node.js plugin kept
+> for backwards compatibility with the original prototype and is
+> **not** what Hermes v0.18.x loads on `hermes plugins install`.
+>
+> **For install, configuration, hooks, and dashboard contract, see
+> the README at the repository root.**
+>
+> The lifecycle event names listed below (`task_created`,
+> `task_started`, `task_completed`, `task_failed`, `doc_emitted`) and
+> the `entry: index.js` contract described below are **not** what
+> Hermes v0.18.x fires or accepts. The current contract is:
+>
+> * hooks: `kanban_task_claimed`, `kanban_task_completed`, `kanban_task_blocked`
+> * tool: `inspector_emit_doc` (registered via `ctx.register_tool`)
+> * entry: `__init__.py::register(ctx)` at the repo root
+>
+> The legacy plugin still works as a standalone Node app on its own
+> port (run `node index.js` from this directory) and its test suite
+> (`npm test`, 82 assertions) still passes against its own contract.
+
+## What this directory contains
+
+This is the **standalone JavaScript prototype** of Hermes Inspector.
+It is preserved in-tree so the dashboard UI, storage layer, and
+test suite can be exercised without going through the full Hermes
+plugin loader. None of the host-facing integration described below
+matches current Hermes plugin discovery.
+
+Storage is better-sqlite3 by default; a JSON-file fallback ships for
+environments where the native binding can't be built.
+
+## Original contract (legacy)
+
+> The rest of this file describes the **legacy** JS contract. It is
+> kept as historical reference and to support the local `npm test`
+> suite. Do not wire a new Hermes install against it.
 
 A Hermes plugin that:
 
 1. **Persists** every doc Hermes emits (PR summaries, briefs, ADRs, notes) and a snapshot of kanban board state.
 2. **Subscribes** to lifecycle events (`task_created`, `task_started`, `task_completed`, `task_failed`, `doc_emitted`) and writes them to the store.
 3. **Exposes** an HTTP dashboard under `/plugins/hermes-inspector` for browsing docs, inspecting cards, and moving cards between columns.
-
-Storage is better-sqlite3 by default; a JSON-file fallback ships for environments where the native binding can't be built.
 
 ## Layout
 

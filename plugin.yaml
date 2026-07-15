@@ -1,0 +1,45 @@
+# Hermes plugin manifest (general plugin contract).
+# Discovered by `hermes plugins install aliaadil/hermes-inspector`.
+# The install clones this repo into `~/.hermes/plugins/hermes-inspector/`
+# and the loader imports `./__init__.py` from that clone to call
+# `register(ctx)`.
+name: hermes-inspector
+version: 1.0.0
+description: >-
+  Persists every doc Hermes emits (PR summaries, briefs, ADRs, notes)
+  plus a snapshot of kanban board state, then exposes a small HTTP
+  dashboard for inspection and manual card moves.
+author: aliadil
+license: MIT
+
+# Lifecycle hooks this plugin subscribes to. These are the actual
+# hook names Hermes Agent v0.18.x fires from the kanban dispatcher
+# (see hermes_cli.plugins.VALID_HOOKS); adding a new hook is a
+# one-line edit here AND in __init__.py::register().
+hooks:
+  - kanban_task_claimed
+  - kanban_task_completed
+  - kanban_task_blocked
+
+# Tools provided by this plugin.
+tools:
+  - inspector_emit_doc
+
+# Tags shown on the plugin index page.
+tags:
+  - observability
+  - kanban
+  - dashboard
+
+# Optional metadata about the dashboard extension mounted under
+# /api/plugins/hermes-inspector/. The dashboard's plugin scanner
+# picks this up from ./dashboard/manifest.json (separate file).
+dashboard:
+  manifest: dashboard/manifest.json
+  base_path: /api/plugins/hermes-inspector
+
+# Configuration consumed at register() time.
+config:
+  data_dir: ./data
+  backend: sqlite
+  db_name: null   # auto-pick based on backend if null

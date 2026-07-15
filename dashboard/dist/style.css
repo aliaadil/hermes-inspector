@@ -1,0 +1,221 @@
+/*
+ * Hermes Inspector — dashboard plugin styles.
+ *
+ * Two-pane layout: kanban board on the left, doc feed on the right.
+ * All colors use theme CSS vars so the view reskins with the active
+ * dashboard theme.
+ */
+
+.hermes-inspector-root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  min-height: 0;
+}
+
+.hermes-inspector-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 4px 8px 4px;
+}
+
+.hermes-inspector-toolbar h2 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+  flex: 1;
+}
+
+.hermes-inspector-error {
+  color: var(--color-destructive, #c0392b);
+  font-size: 12px;
+}
+
+.hermes-inspector-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ---- Board ----------------------------------------------------------- */
+
+.hermes-inspector-board {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  overflow-x: auto;
+  min-height: 0;
+}
+
+.hermes-inspector-column {
+  background: var(--color-background-muted, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  min-height: 240px;
+}
+
+.hermes-inspector-column.is-over {
+  border-color: var(--color-accent, #6366f1);
+  background: var(--color-background-muted-active, rgba(99, 102, 241, 0.08));
+}
+
+.hermes-inspector-column-header {
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--color-border, rgba(255, 255, 255, 0.06));
+}
+
+.hermes-inspector-column-count {
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+.hermes-inspector-column-body {
+  flex: 1;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.hermes-inspector-card {
+  background: var(--color-background-base, #1a1a1a);
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.06));
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: grab;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hermes-inspector-card:active {
+  cursor: grabbing;
+}
+
+.hermes-inspector-card-title {
+  font-weight: 600;
+}
+
+.hermes-inspector-card-meta {
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+.hermes-inspector-card-body {
+  font-size: 12px;
+  opacity: 0.8;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.hermes-inspector-empty {
+  font-size: 12px;
+  opacity: 0.5;
+  padding: 12px;
+  text-align: center;
+}
+
+/* ---- Docs pane ------------------------------------------------------- */
+
+.hermes-inspector-docs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.hermes-inspector-docs-toolbar {
+  display: flex;
+  gap: 8px;
+}
+
+.hermes-inspector-doc-detail {
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  border-radius: 6px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 50%;
+}
+
+.hermes-inspector-doc-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.hermes-inspector-doc-detail-header h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.hermes-inspector-doc-content {
+  margin: 0;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow: auto;
+  padding: 6px;
+  background: var(--color-background-muted, rgba(255, 255, 255, 0.04));
+  border-radius: 4px;
+  flex: 1;
+  min-height: 60px;
+}
+
+.hermes-inspector-doc-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+}
+
+.hermes-inspector-doc-row {
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.06));
+  border-radius: 4px;
+  padding: 6px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hermes-inspector-doc-row:hover {
+  background: var(--color-background-muted, rgba(255, 255, 255, 0.04));
+}
+
+.hermes-inspector-doc-title {
+  font-weight: 600;
+}
+
+.hermes-inspector-doc-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.hermes-inspector-time {
+  margin-left: auto;
+  opacity: 0.7;
+}
