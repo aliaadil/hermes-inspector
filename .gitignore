@@ -1,0 +1,6 @@
+# Hermes Inspector runtime state. Default location is ./data relative to the
+# install root (see plugin.yaml `data_dir` and __init__.py::_resolve_data_dir).
+# Override with HERMES_INSPECTOR_DATA_DIR if you move it. A tracked SQLite
+# store would leak prompts/doc previews and is never the right artifact to
+# ship to git.
+data/

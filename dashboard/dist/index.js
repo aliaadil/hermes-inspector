@@ -17,10 +17,13 @@
   "use strict";
 
   const SDK = window.__HERMES_PLUGIN_SDK__;
-  if (!SDK) {
-    // Older host dashboards without the SDK — fail quiet so we don't
-    // surface an uncaught error in the console. The user can still hit
-    // the JSON endpoints directly.
+  // Current host dashboards expose window.__HERMES_PLUGINS__.register(slug, Component)
+  // to render a plugin page. Without it the host reports the script as not calling
+  // register() and the page renders blank. Older hosts without either SDK surface
+  // a quiet no-op so the JSON endpoints under /api/plugins/hermes-inspector are
+  // still callable directly.
+  const Plugins = window.__HERMES_PLUGINS__;
+  if (!SDK || !Plugins || typeof Plugins.register !== "function") {
     return;
   }
 
@@ -246,16 +249,8 @@
     );
   }
 
-  // The SDK exposes a mount function that the dashboard calls after
-  // loading our bundle. Fall back to inserting a placeholder if the
-  // SDK predates that helper.
-  if (typeof SDK.mount === "function") {
-    SDK.mount(InspectorView);
-  } else if (typeof SDK.render === "function") {
-    SDK.render(InspectorView, document.currentScript ? document.currentScript.parentElement : document.body);
-  } else {
-    // Last-resort: render into a known element id.
-    const target = document.getElementById("hermes-inspector-root");
-    if (target && SDK.render) SDK.render(InspectorView, target);
-  }
+  // Register the page with the current host SDK contract. The host calls
+  // Plugins.register(slug, Component) and renders <Component /> inside the
+  // plugin tab — no manual mount/render call is needed here.
+  Plugins.register("hermes-inspector", InspectorView);
 })();
