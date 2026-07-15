@@ -1,12 +1,104 @@
 # Hermes Inspector
 
-A Hermes plugin that:
+A Hermes plugin that persists every doc Hermes emits (PR summaries, briefs, ADRs, notes) plus a snapshot of kanban board state, and exposes a small web dashboard for browsing both. Storage is `better-sqlite3` by default with a JSON-file fallback for environments where the native binding can't build.
 
-1. **Persists** every doc Hermes emits (PR summaries, briefs, ADRs, notes) and a snapshot of kanban board state.
-2. **Subscribes** to lifecycle events (`task_created`, `task_started`, `task_completed`, `task_failed`, `doc_emitted`) and writes them to the store.
-3. **Exposes** an HTTP dashboard under `/plugins/hermes-inspector` for browsing docs, inspecting cards, and moving cards between columns.
+![dashboard placeholder](docs/dashboard.png)
 
-Storage is better-sqlite3 by default; a JSON-file fallback ships for environments where the native binding can't be built.
+## Install
+
+The plugin ships inside this repo at `plugins/hermes-inspector/`. To install it for a host deployment:
+
+1. Install dependencies and build the native binding:
+   ```
+   cd plugins/hermes-inspector
+   npm install
+   ```
+2. Make the host load it. The host scans `plugins/*/plugin.yaml`, reads `entry` (`index.js`), and wires up the `events` list. Drop the whole `hermes-inspector/` directory wherever the host expects to find plugins and restart it.
+3. Smoke-test before trusting it:
+   ```
+   npm test          # smoke + integration, both storage backends, plus UI checks
+   ```
+
+The plugin node module name is `hermes-inspector` (see `package.json#name`) and it is `require()`d by the host's plugin loader.
+
+## Configure
+
+Config is read from `plugin.yaml#config` and passed to `onLoad({ config })`. All keys are optional; defaults below are what the plugin assumes if a key is omitted.
+
+| Key          | Default                         | Purpose                                                                 |
+|--------------|---------------------------------|-------------------------------------------------------------------------|
+| `data_path`  | `./data/inspector.db`           | Where the SQLite (or JSON) file lives. Resolved relative to the plugin dir if not absolute. |
+| `backend`    | `sqlite`                        | `sqlite` (better-sqlite3) or `json` (zero-dep fallback for hardened envs). |
+| `http_port`  | `0` (let host assign)           | Used by the standalone runner only. The host assigns the real port.    |
+
+Refresh interval for the dashboard is fixed at **5 seconds** in `public/app.js` (`POLL_MS = 5000`); the dashboard pauses polling when the tab is hidden. There is no server-side knob — change the constant in `app.js` if you need a different cadence.
+
+The HTTP route prefix is fixed by the manifest at `/plugins/hermes-inspector` (see `plugin.yaml#http.base_path`). To change it, edit the manifest and the corresponding link in any docs or bookmark.
+
+## What gets captured
+
+Lifecycle events the plugin subscribes to (declared in `plugin.yaml#events`):
+
+- `task_created`  → upsert card into column `ready`
+- `task_started`  → upsert card into column `running`
+- `task_completed`→ upsert card into column `done`
+- `task_failed`   → upsert card into column `blocked`
+- `doc_emitted`   → save the doc (id, task_id, title, content, source)
+
+Card columns accepted on write and on the `POST /api/board/move` endpoint:
+
+`todo | ready | running | blocked | review | done`
+
+Where it lives on disk:
+
+- SQLite backend → `<data_path>` plus `-wal` and `-shm` sidecar files when WAL is active
+- JSON backend   → a single `<data_path>` file (path is reused; extension is informational)
+
+## Open the dashboard
+
+Once the host is running, the dashboard is at:
+
+```
+http://<host>:<port>/plugins/hermes-inspector/
+```
+
+For a standalone run (used by the tests, not production):
+
+```
+node -e "require('./plugins/hermes-inspector').runStandalone({ port: 8080 }).then(r => console.log('listening on', r.port))"
+```
+
+The dashboard polls `/api/board` and `/api/docs` every 5 seconds, has text/date/task filters, and lets you drag a card between columns (which `POST`s to `/api/board/move`).
+
+## Reset / wipe state
+
+Stop the host, then delete the data file. The plugin recreates an empty store on next start.
+
+```
+# SQLite (delete the db + WAL sidecars; recommend a checkpoint first)
+sqlite3 plugins/hermes-inspector/data/inspector.db ".backup plugins/hermes-inspector/data/inspector.db.bak"
+rm plugins/hermes-inspector/data/inspector.db plugins/hermes-inspector/data/inspector.db-wal plugins/hermes-inspector/data/inspector.db-shm
+```
+
+If you don't have the `sqlite3` CLI, stopping writes briefly and then deleting the three files is safe — `better-sqlite3` reopens cleanly.
+
+## Privacy
+
+All data is local. The plugin makes no external HTTP calls, no telemetry, no auth. The dashboard listens on whatever port the host exposes; if your host binds to `0.0.0.0`, anyone with network access can read it. Bind it to `127.0.0.1` or put it behind auth if that matters.
+
+## HTTP API
+
+All routes are mounted under `/plugins/hermes-inspector` (the manifest's `http.base_path`).
+
+| Method | Path               | Description                                                            |
+|--------|--------------------|------------------------------------------------------------------------|
+| GET    | `/health`          | Liveness probe. JSON `{ status, uptime_seconds }`.                     |
+| GET    | `/api/docs`        | List docs. Query: `?task_id`, `?since` (ISO-8601 or epoch-ms), `?limit`. |
+| GET    | `/api/docs/:id`    | One doc, full content.                                                 |
+| GET    | `/api/board`       | All cards grouped by column.                                           |
+| POST   | `/api/board/move`  | Move a card. Body: `{ "card_id": "...", "to_column": "running" }`.     |
+
+Static assets (`/`, `/styles.css`, `/app.js`) are served from `public/`.
 
 ## Layout
 
@@ -14,113 +106,36 @@ Storage is better-sqlite3 by default; a JSON-file fallback ships for environment
 plugins/hermes-inspector/
 ├── plugin.yaml          # Hermes plugin manifest (entry, events, http routes, config)
 ├── index.js             # plugin entry point — onLoad/onEvent/onUnload + standalone runner
-├── package.json         # main: index.js; npm test runs smoke + integration
+├── package.json         # main: index.js; npm test = smoke + integration + UI
 ├── src/
 │   ├── schema.sql       # SQLite schema (docs + kanban)
 │   ├── store.js         # better-sqlite3 backend
-│   ├── store-json.js    # JSON-file fallback (same API)
+│   ├── store-json.js    # JSON-file fallback (same API surface as store.js)
 │   ├── router.js        # tiny pattern-match HTTP router (no framework)
 │   └── manifest.js      # tiny YAML loader for plugin.yaml (zero-dep)
 ├── public/              # static dashboard assets served at /
 │   ├── index.html
 │   ├── styles.css
-│   └── app.js
+│   └── app.js           # vanilla JS, no build step; POLL_MS = 5000
 ├── test/
 │   ├── smoke.js         # storage layer — write/read docs + cards, both backends
-│   └── integration.js   # full plugin lifecycle — events → HTTP → restart-survives
-├── docs/adr-persistence.md
+│   ├── integration.js   # full plugin lifecycle — events → HTTP → restart-survives
+│   └── ui.js            # static-analysis checks on index.html + app.js
+├── docs/
+│   ├── adr-persistence.md
+│   ├── adr-dashboard-ui.md
+│   └── dashboard.png    # (placeholder)
 └── data/                # gitignored: inspector.db (+ wal/shm)
 ```
-
-## Plugin contract
-
-Hermes loads `index.js` and calls the exported lifecycle hooks:
-
-```js
-const plugin = require('@hermes/plugin-inspector');
-
-const { router } = await plugin.onLoad({ config: { data_path: './data/inspector.db' } });
-// Mount `router` at /plugins/hermes-inspector on the host's HTTP server.
-
-await plugin.onEvent('task_created', { id: 't_42', title: 'Ship X' });
-await plugin.onEvent('doc_emitted',  { task_id: 't_42', title: 'Brief', content: '...', source: 'brief' });
-
-// On shutdown:
-await plugin.onUnload();
-```
-
-The router exposes a `handle(method, url, req, res) -> Promise<boolean>` so the host can call it inside its own request handler. Static assets are served from `public/` at `/`.
-
-## HTTP API
-
-All routes are mounted under the plugin's `http.base_path` (`/plugins/hermes-inspector` by default). The standalone runner used by tests mounts at `/plugins/hermes-inspector/...` — strip that prefix when calling the standalone server.
-
-| Method | Path                  | Description                                                 |
-|--------|-----------------------|-------------------------------------------------------------|
-| GET    | `/health`             | Liveness probe.                                             |
-| GET    | `/api/docs`           | List docs. Query: `?task_id`, `?since` (ISO-8601 or ms), `?limit`. |
-| GET    | `/api/docs/:id`       | Fetch one doc.                                              |
-| GET    | `/api/board`          | List all cards grouped by column.                           |
-| POST   | `/api/board/move`     | Move a card. Body: `{ "card_id": "...", "to_column": "done" }`. |
-
-`to_column` must be one of `todo | ready | running | blocked | review | done`.
-
-## Quick start
-
-```
-node plugins/hermes-inspector/index.js        # boots standalone on a random port
-npm --prefix plugins/hermes-inspector test    # runs smoke + integration
-```
-
-Programmatic:
-
-```js
-const inspector = require('./plugins/hermes-inspector');
-const { router, manifest } = await inspector.onLoad({ config: { data_path: './data/inspector.db' } });
-// attach `router` to your HTTP server, then call inspector.onEvent(...) for each lifecycle event.
-```
-
-## Tests
-
-```
-npm test               # smoke + integration, both backends (52 assertions)
-npm run smoke          # storage layer only
-npm run test:integration
-```
-
-The integration test boots the plugin twice against the same data file and asserts that cards + docs survive a restart — matching the acceptance criteria in the task spec.
-
-## Plugin manifest (`plugin.yaml`)
-
-```yaml
-name: hermes-inspector
-version: 0.2.0
-entry: index.js
-events:
-  - task_created
-  - task_started
-  - task_completed
-  - task_failed
-  - doc_emitted
-http:
-  base_path: /plugins/hermes-inspector
-  static_dir: public
-  routes: [...]
-config:
-  data_path: ./data/inspector.db
-  backend: sqlite          # or "json"
-```
-
-The host reads `entry` to know what to `require`, scans `events` to validate subscriptions, and mounts the HTTP routes under `http.base_path`.
-
-## Why a hand-rolled YAML loader?
-
-`plugin.yaml` is small and written by us. Adding `js-yaml` for ~30 lines of YAML we control is overkill, so the manifest is parsed by `src/manifest.js`. Swap to `js-yaml` if the manifest grows beyond what that parser handles (anything beyond plain keys, scalar values, and inline/block lists).
 
 ## Backup
 
 ```
-cp data/inspector.db data/inspector.db.bak
+sqlite3 plugins/hermes-inspector/data/inspector.db ".backup inspector.db.bak"
 ```
 
-WAL mode means you may also want `inspector.db-wal` for an exact point-in-time copy. Either `sqlite3 inspector.db .backup inspector.db.bak` or stop writes briefly while copying.
+Or stop writes, then copy the `inspector.db` plus `-wal` and `-shm` files together — the three are a single consistent snapshot.
+
+## License
+
+MIT. See top-level `LICENSE` if present, otherwise the `license` field in `plugin.yaml`.
