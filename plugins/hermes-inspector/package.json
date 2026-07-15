@@ -1,6 +1,6 @@
 {
   "name": "hermes-inspector",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Hermes Inspector plugin — storage layer + HTTP dashboard for docs and kanban state.",
   "main": "index.js",
   "scripts": {
@@ -10,7 +10,9 @@
     "test:integration:sqlite": "node test/integration.js sqlite",
     "test:integration:json": "node test/integration.js json",
     "test:integration": "node test/integration.js sqlite && node test/integration.js json",
-    "test": "node test/smoke.js sqlite && node test/smoke.js json && node test/integration.js sqlite && node test/integration.js json"
+    "test:ui": "node test/ui.js",
+    "test:integration_and_ui": "node test/integration.js sqlite && node test/integration.js json && node test/ui.js",
+    "test": "node test/smoke.js sqlite && node test/smoke.js json && node test/integration.js sqlite && node test/integration.js json && node test/ui.js"
   },
   "keywords": ["hermes", "inspector", "sqlite", "kanban"],
   "author": "aliadil",
