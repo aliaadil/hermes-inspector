@@ -54,6 +54,13 @@ def main() -> int:
         print(f"__init__.py not found at {install_root}", file=sys.stderr)
         return 2
 
+    # Track every task this test creates so we can archive them on exit,
+    # even on early-return failure paths. Without this, each test run
+    # leaves a "integration: claimed" and "integration: blocked" card in
+    # the user's real board when HERMES_HOME points at the live DB
+    # instead of a throwaway mktemp dir.
+    created_task_ids: list[str] = []
+
     # Pin the inspector store inside the isolated HERMES_HOME so we
     # don't accidentally write into the install dir.
     data_dir = hermes_home / "inspector-data"
@@ -114,14 +121,58 @@ def main() -> int:
 
     board = "default"
 
-    # Create task A; claim it -> kanban_task_claimed hook should run.
-    with kb.connect_closing(board=board) as conn:
-        task_a_id = kb.create_task(
-            conn,
-            title="integration: claimed",
-            body="triggering kanban_task_claimed via real kanban_db",
-            assignee="builder",
+    # Run the rest of the test inside a try/finally so created tasks get
+    # archived no matter how we exit (return N, exception, KeyboardInterrupt).
+    try:
+        return _run_lifecycle_and_tool_checks(
+            board=board,
+            kb=kb,
+            get_store=get_store,
+            created_task_ids=created_task_ids,
         )
+    finally:
+        _archive_created_tasks(board=board, kb=kb, task_ids=created_task_ids)
+
+
+def _create_task(
+    *, kb, board: str, created_task_ids: list[str], **kwargs
+) -> str:
+    """Create a task and append its id to ``created_task_ids``.
+
+    The append happens immediately after ``create_task`` returns, so the
+    id is always tracked if the row is in the DB. ``create_task`` is
+    atomic: if it raises, the row was rolled back and there's nothing to
+    clean up — we let the exception propagate so the assertion checks
+    downstream see the real failure mode.
+    """
+    with kb.connect_closing(board=board) as conn:
+        task_id = kb.create_task(conn, **kwargs)
+    created_task_ids.append(task_id)
+    return task_id
+
+
+def _run_lifecycle_and_tool_checks(
+    *,
+    board: str,
+    kb,
+    get_store,
+    created_task_ids: list[str],
+) -> int:
+    """Steps 2-4 of the integration test. Returns the exit code.
+
+    Every task created via ``_create_task`` is appended to
+    ``created_task_ids`` so the caller can archive it on the way out.
+    """
+
+    # Create task A; claim it -> kanban_task_claimed hook should run.
+    task_a_id = _create_task(
+        kb=kb,
+        board=board,
+        created_task_ids=created_task_ids,
+        title="integration: claimed",
+        body="triggering kanban_task_claimed via real kanban_db",
+        assignee="builder",
+    )
     _say("kanban_create", task_id=task_a_id)
     with kb.connect_closing(board=board) as conn:
         kb.claim_task(conn, task_a_id, claimer="integration-test")
@@ -143,13 +194,14 @@ def main() -> int:
         return 9
 
     # Block task B -> kanban_task_blocked hook.
-    with kb.connect_closing(board=board) as conn:
-        task_b_id = kb.create_task(
-            conn,
-            title="integration: blocked",
-            body="triggering kanban_task_blocked via real kanban_db",
-            assignee="builder",
-        )
+    task_b_id = _create_task(
+        kb=kb,
+        board=board,
+        created_task_ids=created_task_ids,
+        title="integration: blocked",
+        body="triggering kanban_task_blocked via real kanban_db",
+        assignee="builder",
+    )
     with kb.connect_closing(board=board) as conn:
         kb.block_task(conn, task_b_id, reason="integration test blocker")
     card = store.get_card(task_b_id)
@@ -239,6 +291,33 @@ def main() -> int:
 
     _say("ok", all_steps_passed=True)
     return 0
+
+
+def _archive_created_tasks(*, board: str, kb, task_ids: list[str]) -> None:
+    """Archive every task id the test created, best-effort.
+
+    Runs from the caller's ``finally`` so cleanup happens on success,
+    early-return failure, and exceptions. Each ``archive_task`` call
+    uses its own short-lived connection because the test may have
+    crashed mid-transaction in a way that left the previous connection
+    in an unusable state.
+
+    Archive is idempotent (returns False if the task is already gone or
+    not in an archivable state), so a partially-completed run won't
+    raise on the second pass.
+    """
+    for tid in task_ids:
+        try:
+            with kb.connect_closing(board=board) as conn:
+                archived = kb.archive_task(conn, tid)
+            _say("teardown_archive", task_id=tid, archived=bool(archived))
+        except Exception as exc:
+            # Never let cleanup mask the real test result.
+            _say(
+                "teardown_archive_failed",
+                task_id=tid,
+                error=f"{type(exc).__name__}: {exc}",
+            )
 
 
 if __name__ == "__main__":
