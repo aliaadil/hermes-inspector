@@ -1,0 +1,14 @@
+{
+  "name": "hermes-inspector",
+  "label": "Inspector",
+  "description": "Persists every doc Hermes emits and snapshots kanban board state. Browse + move cards here.",
+  "icon": "Search",
+  "version": "1.0.0",
+  "tab": {
+    "path": "/plugins/hermes-inspector",
+    "position": "end"
+  },
+  "entry": "dist/index.js",
+  "css": "dist/style.css",
+  "api": "plugin_api.py"
+}
