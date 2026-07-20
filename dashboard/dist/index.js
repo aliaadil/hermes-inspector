@@ -51,7 +51,7 @@
   // ---------------------------------------------------------------------------
 
   async function fetchJson(url, opts) {
-    const res = await fetch(url, Object.assign({ headers: { "content-type": "application/json" } }, opts || {}));
+    const res = await SDK.authedFetch(url, Object.assign({ headers: { "content-type": "application/json" } }, opts || {}));
     let body = null;
     try { body = await res.json(); } catch (_) { body = null; }
     return { ok: res.ok, status: res.status, body };
